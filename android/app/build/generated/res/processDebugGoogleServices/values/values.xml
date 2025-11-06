@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gcm_defaultSenderId" translatable="false">888532691546</string>
+    <string name="google_api_key" translatable="false">AIzaSyD3GS3z8-fGLO_i5PDXLVn1t_Etwe2P3Oo</string>
+    <string name="google_app_id" translatable="false">1:888532691546:android:5ded804e67e5e5d198c663</string>
+    <string name="google_crash_reporting_api_key" translatable="false">AIzaSyD3GS3z8-fGLO_i5PDXLVn1t_Etwe2P3Oo</string>
+    <string name="google_storage_bucket" translatable="false">university-guide-17286.appspot.com</string>
+    <string name="project_id" translatable="false">university-guide-17286</string>
+</resources>

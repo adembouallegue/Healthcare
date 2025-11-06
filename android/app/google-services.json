@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "888532691546",
+    "project_id": "university-guide-17286",
+    "storage_bucket": "university-guide-17286.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:888532691546:android:5ded804e67e5e5d198c663",
+        "android_client_info": {
+          "package_name": "com.example.university_guide"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD3GS3z8-fGLO_i5PDXLVn1t_Etwe2P3Oo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
