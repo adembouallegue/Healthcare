@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:healthcare/pages/splashscreen.dart';
 import 'package:healthcare/theme/dark_mode.dart';
 import 'package:healthcare/theme/light_mode.dart';
+import 'package:healthcare/pages/home_view.dart';
+
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

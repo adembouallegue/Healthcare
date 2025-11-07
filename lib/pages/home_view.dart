@@ -6,10 +6,40 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:simple_animation_progress_bar/simple_animation_progress_bar.dart';
 import 'package:simple_circular_progress_bar/simple_circular_progress_bar.dart';
-import '../../common/colo_extension.dart';
+import 'package:healthcare/common/colo_extension.dart';
 import 'activity_tracker_view.dart';
 import 'finished_workout_view.dart';
 import 'notification_view.dart';
+
+class HealthData {
+  String waterIntake;
+  String sleep;
+  String calories;
+  String caloriesLeft;
+  List<WaterUpdate> waterUpdates;
+  double progressValue; // 0.0 to 100.0
+  double waterProgressValue; // 0.0 to 100.0
+
+  HealthData({
+    required this.waterIntake,
+    required this.sleep,
+    required this.calories,
+    required this.caloriesLeft,
+    required this.waterUpdates,
+    required this.progressValue,
+    required this.waterProgressValue,
+  });
+}
+
+class WaterUpdate {
+  final String title;
+  String subtitle;
+
+  WaterUpdate({
+    required this.title,
+    required this.subtitle,
+  });
+}
 
 class HomeView extends StatefulWidget {
   const HomeView({super.key});
@@ -45,46 +75,148 @@ class _HomeViewState extends State<HomeView> {
   List<int> showingTooltipOnSpots = [21];
 
   List<FlSpot> get allSpots => const [
-        FlSpot(0, 20),
-        FlSpot(1, 25),
-        FlSpot(2, 40),
-        FlSpot(3, 50),
-        FlSpot(4, 35),
-        FlSpot(5, 40),
-        FlSpot(6, 30),
-        FlSpot(7, 20),
-        FlSpot(8, 25),
-        FlSpot(9, 40),
-        FlSpot(10, 50),
-        FlSpot(11, 35),
-        FlSpot(12, 50),
-        FlSpot(13, 60),
-        FlSpot(14, 40),
-        FlSpot(15, 50),
-        FlSpot(16, 20),
-        FlSpot(17, 25),
-        FlSpot(18, 40),
-        FlSpot(19, 50),
-        FlSpot(20, 35),
-        FlSpot(21, 80),
-        FlSpot(22, 30),
-        FlSpot(23, 20),
-        FlSpot(24, 25),
-        FlSpot(25, 40),
-        FlSpot(26, 50),
-        FlSpot(27, 35),
-        FlSpot(28, 50),
-        FlSpot(29, 60),
-        FlSpot(30, 40)
-      ];
-
-  List waterArr = [
-    {"title": "6am - 8am", "subtitle": "600ml"},
-    {"title": "9am - 11am", "subtitle": "500ml"},
-    {"title": "11am - 2pm", "subtitle": "1000ml"},
-    {"title": "2pm - 4pm", "subtitle": "700ml"},
-    {"title": "4pm - now", "subtitle": "900ml"},
+    FlSpot(0, 20),
+    FlSpot(1, 25),
+    FlSpot(2, 40),
+    FlSpot(3, 50),
+    FlSpot(4, 35),
+    FlSpot(5, 40),
+    FlSpot(6, 30),
+    FlSpot(7, 20),
+    FlSpot(8, 25),
+    FlSpot(9, 40),
+    FlSpot(10, 50),
+    FlSpot(11, 35),
+    FlSpot(12, 50),
+    FlSpot(13, 60),
+    FlSpot(14, 40),
+    FlSpot(15, 50),
+    FlSpot(16, 20),
+    FlSpot(17, 25),
+    FlSpot(18, 40),
+    FlSpot(19, 50),
+    FlSpot(20, 35),
+    FlSpot(21, 80),
+    FlSpot(22, 30),
+    FlSpot(23, 20),
+    FlSpot(24, 25),
+    FlSpot(25, 40),
+    FlSpot(26, 50),
+    FlSpot(27, 35),
+    FlSpot(28, 50),
+    FlSpot(29, 60),
+    FlSpot(30, 40)
   ];
+
+  // Dynamic health data - starting from zero
+  HealthData healthData = HealthData(
+    waterIntake: "0 Liters",
+    sleep: "8h 20m",
+    calories: "0 kCal",
+    caloriesLeft: "2400kCal\nleft",
+    progressValue: 0.0,
+    waterProgressValue: 0.0,
+    waterUpdates: [
+      // WaterUpdate(title: "● 6am - 8am", subtitle: "0ml"),
+      // WaterUpdate(title: "● 9am - 11am", subtitle: "0ml"),
+      // WaterUpdate(title: "● 11am - 2pm", subtitle: "0ml"),
+      // WaterUpdate(title: "● 2pm - 4pm", subtitle: "0ml"),
+      // WaterUpdate(title: "● 4pm - now", subtitle: "0ml"),
+    ],
+  );
+
+  // ValueNotifiers for the progress bars
+  late ValueNotifier<double> progressNotifier;
+  late ValueNotifier<double> waterProgressNotifier;
+
+  @override
+  void initState() {
+    super.initState();
+    progressNotifier = ValueNotifier(healthData.progressValue);
+    waterProgressNotifier = ValueNotifier(healthData.waterProgressValue);
+  }
+
+  @override
+  void dispose() {
+    progressNotifier.dispose();
+    waterProgressNotifier.dispose();
+    super.dispose();
+  }
+
+  // Method to add calories
+  void addCalories() {
+    setState(() {
+      // Parse current calories and calories left
+      int currentCalories = int.parse(healthData.calories.split(' ')[0]);
+      int caloriesLeftValue = int.parse(healthData.caloriesLeft.split('kCal')[0]);
+
+      // Add 50 calories to consumed and remove 50 from left
+      currentCalories += 50;
+      caloriesLeftValue -= 50;
+
+      // Ensure calories left doesn't go below 0
+      if (caloriesLeftValue < 0) {
+        caloriesLeftValue = 0;
+      }
+
+      // Update the data
+      healthData.calories = "${currentCalories} kCal";
+      healthData.caloriesLeft = "${caloriesLeftValue}kCal\nleft";
+
+      // Calculate progress based on total calories (consumed + left)
+      int totalCalories = currentCalories + caloriesLeftValue;
+      double newProgress = totalCalories > 0 ? (currentCalories / totalCalories) * 100 : 0;
+      healthData.progressValue = newProgress;
+      progressNotifier.value = newProgress;
+    });
+  }
+
+  // Method to add water
+  void addWater() {
+    setState(() {
+      // Parse current water intake
+      double currentWater = double.parse(healthData.waterIntake.split(' ')[0]);
+
+      // Add 200ml (0.2 liters)
+      currentWater += 0.2;
+
+      // Update the main water intake
+      healthData.waterIntake = "${currentWater.toStringAsFixed(1)} Liters";
+
+      // Calculate water progress (assuming target of 4 liters)
+      double waterTarget = 4.0; // 4 liters target
+      double newWaterProgress = (currentWater / waterTarget) * 100;
+      if (newWaterProgress > 100) newWaterProgress = 100;
+
+      healthData.waterProgressValue = newWaterProgress;
+      waterProgressNotifier.value = newWaterProgress;
+
+      // Update the latest water update (last item in the list)
+      if (healthData.waterUpdates.isNotEmpty) {
+        WaterUpdate lastUpdate = healthData.waterUpdates.last;
+        int currentML = int.parse(lastUpdate.subtitle.split('ml')[0]);
+        currentML += 200;
+        lastUpdate.subtitle = "${currentML}ml";
+      }
+    });
+  }
+
+  // Method to calculate time to 10 PM
+  String _getTimeTo10PM() {
+    DateTime now = DateTime.now();
+    DateTime tenPM = DateTime(now.year, now.month, now.day, 22, 0); // 10 PM today
+
+    // If it's already past 10 PM, calculate for tomorrow
+    if (now.isAfter(tenPM)) {
+      tenPM = tenPM.add(Duration(days: 1));
+    }
+
+    Duration difference = tenPM.difference(now);
+    int hours = difference.inHours;
+    int minutes = difference.inMinutes.remainder(60);
+
+    return '${hours}h ${minutes}m';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -237,7 +369,7 @@ class _HomeViewState extends State<HomeView> {
                 ),
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(vertical: 15, horizontal: 15),
+                  const EdgeInsets.symmetric(vertical: 15, horizontal: 15),
                   decoration: BoxDecoration(
                     color: TColor.primaryColor2.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(15),
@@ -265,7 +397,7 @@ class _HomeViewState extends State<HomeView> {
                               context,
                               MaterialPageRoute(
                                 builder: (context) =>
-                                    const ActivityTrackerView(),
+                                const ActivityTrackerView(),
                               ),
                             );
                           },
@@ -360,11 +492,11 @@ class _HomeViewState extends State<HomeView> {
                                 blendMode: BlendMode.srcIn,
                                 shaderCallback: (bounds) {
                                   return LinearGradient(
-                                          colors: TColor.primaryG,
-                                          begin: Alignment.centerLeft,
-                                          end: Alignment.centerRight)
+                                      colors: TColor.primaryG,
+                                      begin: Alignment.centerLeft,
+                                      end: Alignment.centerRight)
                                       .createShader(Rect.fromLTRB(
-                                          0, 0, bounds.width, bounds.height));
+                                      0, 0, bounds.width, bounds.height));
                                 },
                                 child: Text(
                                   "78 BPM",
@@ -380,7 +512,7 @@ class _HomeViewState extends State<HomeView> {
                         LineChart(
                           LineChartData(
                             showingTooltipIndicators:
-                                showingTooltipOnSpots.map((index) {
+                            showingTooltipOnSpots.map((index) {
                               return ShowingTooltipIndicators([
                                 LineBarSpot(
                                   tooltipsOnBar,
@@ -417,7 +549,7 @@ class _HomeViewState extends State<HomeView> {
                               },
                               getTouchedSpotIndicator:
                                   (LineChartBarData barData,
-                                      List<int> spotIndexes) {
+                                  List<int> spotIndexes) {
                                 return spotIndexes.map((index) {
                                   return TouchedSpotIndicatorData(
                                     FlLine(
@@ -427,12 +559,12 @@ class _HomeViewState extends State<HomeView> {
                                       show: true,
                                       getDotPainter:
                                           (spot, percent, barData, index) =>
-                                              FlDotCirclePainter(
-                                        radius: 3,
-                                        color: Colors.white,
-                                        strokeWidth: 3,
-                                        strokeColor: TColor.secondaryColor1,
-                                      ),
+                                          FlDotCirclePainter(
+                                            radius: 3,
+                                            color: Colors.white,
+                                            strokeWidth: 3,
+                                            strokeColor: TColor.secondaryColor1,
+                                          ),
                                     ),
                                   );
                                 }).toList();
@@ -490,152 +622,7 @@ class _HomeViewState extends State<HomeView> {
                             boxShadow: const [
                               BoxShadow(color: Colors.black12, blurRadius: 2)
                             ]),
-                        child: Row(
-                          children: [
-                            SimpleAnimationProgressBar(
-                              height: media.width * 0.85,
-                              width: media.width * 0.07,
-                              backgroundColor: Colors.grey.shade100,
-                              foregroundColor: Colors.purple,
-                              ratio: 0.5,
-                              direction: Axis.vertical,
-                              curve: Curves.fastLinearToSlowEaseIn,
-                              duration: const Duration(seconds: 3),
-                              borderRadius: BorderRadius.circular(15),
-                              gradientColor: LinearGradient(
-                                  colors: TColor.primaryG,
-                                  begin: Alignment.bottomCenter,
-                                  end: Alignment.topCenter),
-                            ),
-                            const SizedBox(
-                              width: 10,
-                            ),
-                            Expanded(
-                                child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Water Intake",
-                                  style: TextStyle(
-                                      color: TColor.black,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700),
-                                ),
-                                ShaderMask(
-                                  blendMode: BlendMode.srcIn,
-                                  shaderCallback: (bounds) {
-                                    return LinearGradient(
-                                            colors: TColor.primaryG,
-                                            begin: Alignment.centerLeft,
-                                            end: Alignment.centerRight)
-                                        .createShader(Rect.fromLTRB(
-                                            0, 0, bounds.width, bounds.height));
-                                  },
-                                  child: Text(
-                                    "4 Liters",
-                                    style: TextStyle(
-                                        color: TColor.white.withOpacity(0.7),
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 14),
-                                  ),
-                                ),
-                                const SizedBox(
-                                  height: 10,
-                                ),
-                                Text(
-                                  "Real time updates",
-                                  style: TextStyle(
-                                    color: TColor.gray,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: waterArr.map((wObj) {
-                                    var isLast = wObj == waterArr.last;
-                                    return Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.start,
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.center,
-                                          children: [
-                                            Container(
-                                              margin:
-                                                  const EdgeInsets.symmetric(
-                                                      vertical: 4),
-                                              width: 10,
-                                              height: 10,
-                                              decoration: BoxDecoration(
-                                                color: TColor.secondaryColor1
-                                                    .withOpacity(0.5),
-                                                borderRadius:
-                                                    BorderRadius.circular(5),
-                                              ),
-                                            ),
-                                            if (!isLast)
-                                              DottedDashedLine(
-                                                  height: media.width * 0.078,
-                                                  width: 0,
-                                                  dashColor: TColor
-                                                      .secondaryColor1
-                                                      .withOpacity(0.5),
-                                                  axis: Axis.vertical)
-                                          ],
-                                        ),
-                                        const SizedBox(
-                                          width: 10,
-                                        ),
-                                        Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.start,
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              wObj["title"].toString(),
-                                              style: TextStyle(
-                                                color: TColor.gray,
-                                                fontSize: 10,
-                                              ),
-                                            ),
-                                            ShaderMask(
-                                              blendMode: BlendMode.srcIn,
-                                              shaderCallback: (bounds) {
-                                                return LinearGradient(
-                                                        colors:
-                                                            TColor.secondaryG,
-                                                        begin: Alignment
-                                                            .centerLeft,
-                                                        end: Alignment
-                                                            .centerRight)
-                                                    .createShader(Rect.fromLTRB(
-                                                        0,
-                                                        0,
-                                                        bounds.width,
-                                                        bounds.height));
-                                              },
-                                              child: Text(
-                                                wObj["subtitle"].toString(),
-                                                style: TextStyle(
-                                                    color: TColor.white
-                                                        .withOpacity(0.7),
-                                                    fontSize: 12),
-                                              ),
-                                            ),
-                                          ],
-                                        )
-                                      ],
-                                    );
-                                  }).toList(),
-                                )
-                              ],
-                            ))
-                          ],
-                        ),
+                        child: _buildWaterIntakeSection(media),
                       ),
                     ),
                     SizedBox(
@@ -643,141 +630,16 @@ class _HomeViewState extends State<HomeView> {
                     ),
                     Expanded(
                         child: Column(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: double.maxFinite,
-                          height: media.width * 0.45,
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 25, horizontal: 20),
-                          decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(25),
-                              boxShadow: const [
-                                BoxShadow(color: Colors.black12, blurRadius: 2)
-                              ]),
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Sleep",
-                                  style: TextStyle(
-                                      color: TColor.black,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700),
-                                ),
-                                ShaderMask(
-                                  blendMode: BlendMode.srcIn,
-                                  shaderCallback: (bounds) {
-                                    return LinearGradient(
-                                            colors: TColor.primaryG,
-                                            begin: Alignment.centerLeft,
-                                            end: Alignment.centerRight)
-                                        .createShader(Rect.fromLTRB(
-                                            0, 0, bounds.width, bounds.height));
-                                  },
-                                  child: Text(
-                                    "8h 20m",
-                                    style: TextStyle(
-                                        color: TColor.white.withOpacity(0.7),
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 14),
-                                  ),
-                                ),
-                                const Spacer(),
-                                Image.asset("assets/img/sleep_grap.png",
-                                    width: double.maxFinite,
-                                    fit: BoxFit.fitWidth)
-                              ]),
-                        ),
-                        SizedBox(
-                          height: media.width * 0.05,
-                        ),
-                        Container(
-                          width: double.maxFinite,
-                          height: media.width * 0.45,
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 25, horizontal: 20),
-                          decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(25),
-                              boxShadow: const [
-                                BoxShadow(color: Colors.black12, blurRadius: 2)
-                              ]),
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Calories",
-                                  style: TextStyle(
-                                      color: TColor.black,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700),
-                                ),
-                                ShaderMask(
-                                  blendMode: BlendMode.srcIn,
-                                  shaderCallback: (bounds) {
-                                    return LinearGradient(
-                                            colors: TColor.primaryG,
-                                            begin: Alignment.centerLeft,
-                                            end: Alignment.centerRight)
-                                        .createShader(Rect.fromLTRB(
-                                            0, 0, bounds.width, bounds.height));
-                                  },
-                                  child: Text(
-                                    "760 kCal",
-                                    style: TextStyle(
-                                        color: TColor.white.withOpacity(0.7),
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 14),
-                                  ),
-                                ),
-                                const Spacer(),
-                                Container(
-                                  alignment: Alignment.center,
-                                  child: SizedBox(
-                                    width: media.width * 0.2,
-                                    height: media.width * 0.2,
-                                    child: Stack(
-                                      alignment: Alignment.center,
-                                      children: [
-                                        Container(
-                                          width: media.width * 0.15,
-                                          height: media.width * 0.15,
-                                          alignment: Alignment.center,
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                                colors: TColor.primaryG),
-                                            borderRadius: BorderRadius.circular(
-                                                media.width * 0.075),
-                                          ),
-                                          child: FittedBox(
-                                            child: Text(
-                                              "230kCal\nleft",
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                  color: TColor.white,
-                                                  fontSize: 11),
-                                            ),
-                                          ),
-                                        ),
-                                        SimpleCircularProgressBar(
-                                          progressStrokeWidth: 10,
-                                          backStrokeWidth: 10,
-                                          progressColors: TColor.primaryG,
-                                          backColor: Colors.grey.shade100,
-                                          valueNotifier: ValueNotifier(50),
-                                          startAngle: -180,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                              ]),
-                        ),
-                      ],
-                    ))
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildSleepCard(media),
+                            SizedBox(
+                              height: media.width * 0.05,
+                            ),
+                            _buildCaloriesCard(media),
+                          ],
+                        ))
                   ],
                 ),
                 SizedBox(
@@ -804,13 +666,13 @@ class _HomeViewState extends State<HomeView> {
                           child: DropdownButton(
                             items: ["Weekly", "Monthly"]
                                 .map((name) => DropdownMenuItem(
-                                      value: name,
-                                      child: Text(
-                                        name,
-                                        style: TextStyle(
-                                            color: TColor.gray, fontSize: 14),
-                                      ),
-                                    ))
+                              value: name,
+                              child: Text(
+                                name,
+                                style: TextStyle(
+                                    color: TColor.gray, fontSize: 14),
+                              ),
+                            ))
                                 .toList(),
                             onChanged: (value) {},
                             icon: Icon(Icons.expand_more, color: TColor.white),
@@ -818,7 +680,7 @@ class _HomeViewState extends State<HomeView> {
                               "Weekly",
                               textAlign: TextAlign.center,
                               style:
-                                  TextStyle(color: TColor.white, fontSize: 12),
+                              TextStyle(color: TColor.white, fontSize: 12),
                             ),
                           ),
                         )),
@@ -834,7 +696,7 @@ class _HomeViewState extends State<HomeView> {
                     child: LineChart(
                       LineChartData(
                         showingTooltipIndicators:
-                            showingTooltipOnSpots.map((index) {
+                        showingTooltipOnSpots.map((index) {
                           return ShowingTooltipIndicators([
                             LineBarSpot(
                               tooltipsOnBar,
@@ -880,12 +742,12 @@ class _HomeViewState extends State<HomeView> {
                                   show: true,
                                   getDotPainter:
                                       (spot, percent, barData, index) =>
-                                          FlDotCirclePainter(
-                                    radius: 3,
-                                    color: Colors.white,
-                                    strokeWidth: 3,
-                                    strokeColor: TColor.secondaryColor1,
-                                  ),
+                                      FlDotCirclePainter(
+                                        radius: 3,
+                                        color: Colors.white,
+                                        strokeWidth: 3,
+                                        strokeColor: TColor.secondaryColor1,
+                                      ),
                                 ),
                               );
                             }).toList();
@@ -978,7 +840,7 @@ class _HomeViewState extends State<HomeView> {
                               context,
                               MaterialPageRoute(
                                 builder: (context) =>
-                                    const FinishedWorkoutView(),
+                                const FinishedWorkoutView(),
                               ),
                             );
                           },
@@ -995,10 +857,518 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
+  // Dynamic Widget Methods
+  Widget _buildWaterIntakeSection(Size media) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Water Intake",
+            style: TextStyle(
+                color: TColor.black,
+                fontSize: 12,
+                fontWeight: FontWeight.w700),
+          ),
+          GestureDetector(
+            onDoubleTap: addWater,
+            child: ShaderMask(
+              blendMode: BlendMode.srcIn,
+              shaderCallback: (bounds) {
+                return LinearGradient(
+                    colors: TColor.primaryG,
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight)
+                    .createShader(Rect.fromLTRB(0, 0, bounds.width, bounds.height));
+              },
+              child: Text(
+                healthData.waterIntake,
+                style: TextStyle(
+                    color: TColor.white.withOpacity(0.7),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14),
+              ),
+            ),
+          ),
+          // const SizedBox(height: 20),
+          // const SizedBox(height: 15),
+
+          // Bigger Realistic Water Bottle Design
+          Container(
+            height: media.width * 0.8, // Increased container height
+            child: Center(
+              child: GestureDetector(
+                onDoubleTap: addWater,
+                child: Stack(
+                  alignment: Alignment.bottomCenter,
+                  children: [
+                    // Main bottle body with curved sides - BIGGER
+                    Container(
+                      width: media.width * 0.3, // Wider bottle
+                      height: media.width * 0.65, // Taller bottle
+                      decoration: BoxDecoration(
+                        color: Colors.transparent,
+                        border: Border.all(
+                          color: TColor.secondaryColor1.withOpacity(0.6),
+                          width: 3, // Thicker border
+                        ),
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(media.width * 0.06),
+                          topRight: Radius.circular(media.width * 0.06),
+                          bottomLeft: Radius.circular(media.width * 0.06),
+                          bottomRight: Radius.circular(media.width * 0.06),
+                        ),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(media.width * 0.06),
+                          topRight: Radius.circular(media.width * 0.06),
+                          bottomLeft: Radius.circular(media.width * 0.06),
+                          bottomRight: Radius.circular(media.width * 0.06),
+                        ),
+                        child: Stack(
+                          children: [
+                            // Water level - BIGGER
+                            Align(
+                              alignment: Alignment.bottomCenter,
+                              child: AnimatedContainer(
+                                duration: Duration(milliseconds: 500),
+                                width: media.width * 0.28,
+                                height: (media.width * 0.61) * (healthData.waterProgressValue / 100),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      TColor.secondaryColor1.withOpacity(0.9),
+                                      TColor.secondaryColor2.withOpacity(0.9),
+                                      TColor.secondaryColor1.withOpacity(0.9),
+                                    ],
+                                    begin: Alignment.bottomCenter,
+                                    end: Alignment.topCenter,
+                                  ),
+                                  borderRadius: BorderRadius.only(
+                                    bottomLeft: Radius.circular(media.width * 0.05),
+                                    bottomRight: Radius.circular(media.width * 0.05),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Bottle neck (narrow part) - BIGGER
+                    Positioned(
+                      top: media.width * 0.65,
+                      child: Container(
+                        width: media.width * 0.18,
+                        height: media.width * 0.05,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(
+                            color: TColor.secondaryColor1.withOpacity(0.6),
+                            width: 3,
+                          ),
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(media.width * 0.03),
+                            topRight: Radius.circular(media.width * 0.03),
+                            bottomLeft: Radius.circular(media.width * 0.03),
+                            bottomRight: Radius.circular(media.width * 0.03),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Bottle cap - BIGGER
+                    Positioned(
+                      top: media.width * 0.7,
+                      child: Container(
+                        width: media.width * 0.12,
+                        height: media.width * 0.025,
+                        decoration: BoxDecoration(
+                          color: TColor.secondaryColor1,
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(media.width * 0.015),
+                            topRight: Radius.circular(media.width * 0.015),
+                            bottomLeft: Radius.circular(media.width * 0.015),
+                            bottomRight: Radius.circular(media.width * 0.015),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 6,
+                              offset: Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Measurement markers on the side - BIGGER
+                    Positioned(
+                      left: media.width * 0.32,
+                      top: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: media.width * 0.07,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _buildWaterMarker("4L", media),
+                            _buildWaterMarker("3L", media),
+                            _buildWaterMarker("2L", media),
+                            _buildWaterMarker("1L", media),
+                            _buildWaterMarker("0L", media),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Water waves effect at the top of water level - BIGGER
+                    Positioned(
+                      bottom: (media.width * 0.61) * (healthData.waterProgressValue / 100),
+                      left: media.width * 0.015,
+                      right: media.width * 0.015,
+                      child: Container(
+                        height: 6,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              TColor.secondaryColor1.withOpacity(0.8),
+                              TColor.secondaryColor2.withOpacity(0.6),
+                              TColor.secondaryColor1.withOpacity(0.4),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                    ),
+
+                    // Current water level indicator - BIGGER
+                    Positioned(
+                      right: media.width * 0.33,
+                      top: (media.width * 0.61) * (1 - healthData.waterProgressValue / 100) - 25,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: TColor.secondaryColor1.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(6),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 6,
+                              offset: Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          healthData.waterIntake,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Bottle label/design - BIGGER
+                    Positioned(
+                      top: media.width * 0.15,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        height: media.width * 0.25,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(media.width * 0.03),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.water_drop,
+                              color: TColor.secondaryColor1.withOpacity(0.3),
+                              size: media.width * 0.08,
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              "H2O",
+                              style: TextStyle(
+                                color: TColor.secondaryColor1.withOpacity(0.4),
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Double-tap instruction - BIGGER
+                    Positioned(
+                      bottom: -25,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        padding: EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.6),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: healthData.waterUpdates.asMap().entries.map((entry) {
+              int index = entry.key;
+              WaterUpdate wObj = entry.value;
+              bool isLast = index == healthData.waterUpdates.length - 1;
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Container(
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: TColor.secondaryColor1.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                      ),
+                      if (!isLast)
+                        DottedDashedLine(
+                            height: media.width * 0.078,
+                            width: 0,
+                            dashColor: TColor.secondaryColor1.withOpacity(0.5),
+                            axis: Axis.vertical)
+                    ],
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        wObj.title,
+                        style: TextStyle(
+                          color: TColor.gray,
+                          fontSize: 10,
+                        ),
+                      ),
+                      ShaderMask(
+                        blendMode: BlendMode.srcIn,
+                        shaderCallback: (bounds) {
+                          return LinearGradient(
+                              colors: TColor.secondaryG,
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight)
+                              .createShader(Rect.fromLTRB(0, 0, bounds.width, bounds.height));
+                        },
+                        child: Text(
+                          wObj.subtitle,
+                          style: TextStyle(
+                              color: TColor.white.withOpacity(0.7),
+                              fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  )
+                ],
+              );
+            }).toList(),
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWaterMarker(String text, Size media) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 3,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 12,
+            height: 2,
+            color: TColor.gray.withOpacity(0.6),
+          ),
+          SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(
+              color: TColor.gray,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSleepCard(Size media) {
+    return Container(
+      width: double.maxFinite,
+      height: media.width * 0.45,
+      padding: const EdgeInsets.symmetric(vertical: 25, horizontal: 20),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(25),
+          boxShadow: const [
+            BoxShadow(color: Colors.black12, blurRadius: 2)
+          ]),
+      child: StreamBuilder(
+        stream: Stream.periodic(Duration(seconds: 1)),
+        builder: (context, snapshot) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Time to 10 PM",
+                style: TextStyle(
+                    color: TColor.black,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700),
+              ),
+              ShaderMask(
+                blendMode: BlendMode.srcIn,
+                shaderCallback: (bounds) {
+                  return LinearGradient(
+                      colors: TColor.primaryG,
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight)
+                      .createShader(Rect.fromLTRB(0, 0, bounds.width, bounds.height));
+                },
+                child: Text(
+                  _getTimeTo10PM(),
+                  style: TextStyle(
+                      color: TColor.white.withOpacity(0.7),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14),
+                ),
+              ),
+              const Spacer(),
+              Image.asset("assets/img/sleep_grap.png",
+                  width: double.maxFinite,
+                  fit: BoxFit.fitWidth)
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildCaloriesCard(Size media) {
+    return Container(
+      width: double.maxFinite,
+      height: media.width * 0.45,
+      padding: const EdgeInsets.symmetric(vertical: 25, horizontal: 20),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(25),
+          boxShadow: const [
+            BoxShadow(color: Colors.black12, blurRadius: 2)
+          ]),
+      child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Calories",
+              style: TextStyle(
+                  color: TColor.black,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700),
+            ),
+            ShaderMask(
+              blendMode: BlendMode.srcIn,
+              shaderCallback: (bounds) {
+                return LinearGradient(
+                    colors: TColor.primaryG,
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight)
+                    .createShader(Rect.fromLTRB(0, 0, bounds.width, bounds.height));
+              },
+              child: Text(
+                healthData.calories,
+                style: TextStyle(
+                    color: TColor.white.withOpacity(0.7),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14),
+              ),
+            ),
+            const Spacer(),
+            GestureDetector(
+              onDoubleTap: addCalories,
+              child: Container(
+                alignment: Alignment.center,
+                child: SizedBox(
+                  width: media.width * 0.2,
+                  height: media.width * 0.2,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        width: media.width * 0.15,
+                        height: media.width * 0.15,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(colors: TColor.primaryG),
+                          borderRadius: BorderRadius.circular(media.width * 0.075),
+                        ),
+                        child: FittedBox(
+                          child: Text(
+                            healthData.caloriesLeft,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: TColor.white, fontSize: 11),
+                          ),
+                        ),
+                      ),
+                      SimpleCircularProgressBar(
+                        progressStrokeWidth: 10,
+                        backStrokeWidth: 10,
+                        progressColors: TColor.primaryG,
+                        backColor: Colors.grey.shade100,
+                        valueNotifier: progressNotifier,
+                        startAngle: -180,
+                        onGetText: (value) {
+                          return Text('');
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          ]),
+    );
+  }
+
   List<PieChartSectionData> showingSections() {
     return List.generate(
       2,
-      (i) {
+          (i) {
         var color0 = TColor.secondaryColor1;
 
         switch (i) {
@@ -1033,67 +1403,67 @@ class _HomeViewState extends State<HomeView> {
   }
 
   LineTouchData get lineTouchData1 => LineTouchData(
-        handleBuiltInTouches: true,
-        touchTooltipData: LineTouchTooltipData(
-          getTooltipColor: (spot) => Colors.blueGrey.withOpacity(0.8),
-        ),
-      );
+    handleBuiltInTouches: true,
+    touchTooltipData: LineTouchTooltipData(
+      getTooltipColor: (spot) => Colors.blueGrey.withOpacity(0.8),
+    ),
+  );
 
   List<LineChartBarData> get lineBarsData1 => [
-        lineChartBarData1_1,
-        lineChartBarData1_2,
-      ];
+    lineChartBarData1_1,
+    lineChartBarData1_2,
+  ];
 
   LineChartBarData get lineChartBarData1_1 => LineChartBarData(
-        isCurved: true,
-        gradient: LinearGradient(colors: [
-          TColor.primaryColor2.withOpacity(0.5),
-          TColor.primaryColor1.withOpacity(0.5),
-        ]),
-        barWidth: 4,
-        isStrokeCapRound: true,
-        dotData: FlDotData(show: false),
-        belowBarData: BarAreaData(show: false),
-        spots: const [
-          FlSpot(1, 35),
-          FlSpot(2, 70),
-          FlSpot(3, 40),
-          FlSpot(4, 80),
-          FlSpot(5, 25),
-          FlSpot(6, 70),
-          FlSpot(7, 35),
-        ],
-      );
+    isCurved: true,
+    gradient: LinearGradient(colors: [
+      TColor.primaryColor2.withOpacity(0.5),
+      TColor.primaryColor1.withOpacity(0.5),
+    ]),
+    barWidth: 4,
+    isStrokeCapRound: true,
+    dotData: FlDotData(show: false),
+    belowBarData: BarAreaData(show: false),
+    spots: const [
+      FlSpot(1, 35),
+      FlSpot(2, 70),
+      FlSpot(3, 40),
+      FlSpot(4, 80),
+      FlSpot(5, 25),
+      FlSpot(6, 70),
+      FlSpot(7, 35),
+    ],
+  );
 
   LineChartBarData get lineChartBarData1_2 => LineChartBarData(
-        isCurved: true,
-        gradient: LinearGradient(colors: [
-          TColor.secondaryColor2.withOpacity(0.5),
-          TColor.secondaryColor1.withOpacity(0.5),
-        ]),
-        barWidth: 2,
-        isStrokeCapRound: true,
-        dotData: FlDotData(show: false),
-        belowBarData: BarAreaData(
-          show: false,
-        ),
-        spots: const [
-          FlSpot(1, 80),
-          FlSpot(2, 50),
-          FlSpot(3, 90),
-          FlSpot(4, 40),
-          FlSpot(5, 80),
-          FlSpot(6, 35),
-          FlSpot(7, 60),
-        ],
-      );
+    isCurved: true,
+    gradient: LinearGradient(colors: [
+      TColor.secondaryColor2.withOpacity(0.5),
+      TColor.secondaryColor1.withOpacity(0.5),
+    ]),
+    barWidth: 2,
+    isStrokeCapRound: true,
+    dotData: FlDotData(show: false),
+    belowBarData: BarAreaData(
+      show: false,
+    ),
+    spots: const [
+      FlSpot(1, 80),
+      FlSpot(2, 50),
+      FlSpot(3, 90),
+      FlSpot(4, 40),
+      FlSpot(5, 80),
+      FlSpot(6, 35),
+      FlSpot(7, 60),
+    ],
+  );
 
   SideTitles get rightTitles => SideTitles(
-        getTitlesWidget: rightTitleWidgets,
-        showTitles: true,
-        interval: 20,
-        reservedSize: 40,
-      );
+    getTitlesWidget: rightTitleWidgets,
+    showTitles: true,
+    interval: 20,
+    reservedSize: 40,
+  );
 
   Widget rightTitleWidgets(double value, TitleMeta meta) {
     String text;
@@ -1129,11 +1499,11 @@ class _HomeViewState extends State<HomeView> {
   }
 
   SideTitles get bottomTitles => SideTitles(
-        showTitles: true,
-        reservedSize: 32,
-        interval: 1,
-        getTitlesWidget: bottomTitleWidgets,
-      );
+    showTitles: true,
+    reservedSize: 32,
+    interval: 1,
+    getTitlesWidget: bottomTitleWidgets,
+  );
 
   Widget bottomTitleWidgets(double value, TitleMeta meta) {
     var style = TextStyle(
