@@ -3,27 +3,24 @@ import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class SettingsController extends GetxController {
+  var username = 'Friend'.obs; // Default friendly name
+  var isLoading = false.obs;
+
   @override
   void onInit() {
-     getData = getUserData() ; 
     super.onInit();
+    _loadUsername();
   }
-  var isLoading = false.obs;
-  var currentUser = FirebaseAuth.instance.currentUser;
-  var username = ''.obs ; 
-  var email = ''.obs ;
-  Future? getData ;
-  getUserData() async {
-    isLoading(true) ; 
-    DocumentSnapshot<Map<String, dynamic>> user = await FirebaseFirestore
-        .instance
-        .collection("Users")
-        .doc(currentUser!.uid)
-        .get();
-    var UserData = user.data();
-    username.value = UserData!['username']?? "";
-    email.value = currentUser!.email ?? "";
-    isLoading(false ) ; 
 
+  void _loadUsername() async {
+    // Simple approach - just use email username
+    try {
+      var user = FirebaseAuth.instance.currentUser;
+      if (user != null && user.email != null) {
+        username.value = user.email!.split('@').first;
+      }
+    } catch (e) {
+      print('Error getting username: $e');
+    }
   }
 }

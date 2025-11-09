@@ -10,6 +10,9 @@ import 'package:healthcare/common/colo_extension.dart';
 import 'activity_tracker_view.dart';
 import 'finished_workout_view.dart';
 import 'notification_view.dart';
+import 'package:get/get.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class HealthData {
   String waterIntake;
@@ -17,8 +20,8 @@ class HealthData {
   String calories;
   String caloriesLeft;
   List<WaterUpdate> waterUpdates;
-  double progressValue; // 0.0 to 100.0
-  double waterProgressValue; // 0.0 to 100.0
+  double progressValue;
+  double waterProgressValue;
 
   HealthData({
     required this.waterIntake,
@@ -49,6 +52,8 @@ class HomeView extends StatefulWidget {
 }
 
 class _HomeViewState extends State<HomeView> {
+  late SettingsController controller;
+
   List lastWorkoutArr = [
     {
       "name": "Full Body Workout",
@@ -108,32 +113,36 @@ class _HomeViewState extends State<HomeView> {
     FlSpot(30, 40)
   ];
 
-  // Dynamic health data - starting from zero
   HealthData healthData = HealthData(
-    waterIntake: "0 Liters",
+    waterIntake: "0.0 Liters",
     sleep: "8h 20m",
     calories: "0 kCal",
     caloriesLeft: "2400kCal\nleft",
     progressValue: 0.0,
     waterProgressValue: 0.0,
-    waterUpdates: [
-      // WaterUpdate(title: "● 6am - 8am", subtitle: "0ml"),
-      // WaterUpdate(title: "● 9am - 11am", subtitle: "0ml"),
-      // WaterUpdate(title: "● 11am - 2pm", subtitle: "0ml"),
-      // WaterUpdate(title: "● 2pm - 4pm", subtitle: "0ml"),
-      // WaterUpdate(title: "● 4pm - now", subtitle: "0ml"),
-    ],
+    waterUpdates: [],
   );
 
-  // ValueNotifiers for the progress bars
   late ValueNotifier<double> progressNotifier;
   late ValueNotifier<double> waterProgressNotifier;
 
   @override
   void initState() {
     super.initState();
+    controller = Get.put(SettingsController());
     progressNotifier = ValueNotifier(healthData.progressValue);
     waterProgressNotifier = ValueNotifier(healthData.waterProgressValue);
+    _initializeWaterUpdates();
+  }
+
+  void _initializeWaterUpdates() {
+    healthData.waterUpdates = [
+      WaterUpdate(title: "● 6am - 8am", subtitle: "0ml"),
+      WaterUpdate(title: "● 9am - 11am", subtitle: "0ml"),
+      WaterUpdate(title: "● 11am - 2pm", subtitle: "0ml"),
+      WaterUpdate(title: "● 2pm - 4pm", subtitle: "0ml"),
+      WaterUpdate(title: "● 4pm - now", subtitle: "0ml"),
+    ];
   }
 
   @override
@@ -143,27 +152,21 @@ class _HomeViewState extends State<HomeView> {
     super.dispose();
   }
 
-  // Method to add calories
   void addCalories() {
     setState(() {
-      // Parse current calories and calories left
       int currentCalories = int.parse(healthData.calories.split(' ')[0]);
       int caloriesLeftValue = int.parse(healthData.caloriesLeft.split('kCal')[0]);
 
-      // Add 50 calories to consumed and remove 50 from left
       currentCalories += 50;
       caloriesLeftValue -= 50;
 
-      // Ensure calories left doesn't go below 0
       if (caloriesLeftValue < 0) {
         caloriesLeftValue = 0;
       }
 
-      // Update the data
       healthData.calories = "${currentCalories} kCal";
       healthData.caloriesLeft = "${caloriesLeftValue}kCal\nleft";
 
-      // Calculate progress based on total calories (consumed + left)
       int totalCalories = currentCalories + caloriesLeftValue;
       double newProgress = totalCalories > 0 ? (currentCalories / totalCalories) * 100 : 0;
       healthData.progressValue = newProgress;
@@ -171,27 +174,20 @@ class _HomeViewState extends State<HomeView> {
     });
   }
 
-  // Method to add water
   void addWater() {
     setState(() {
-      // Parse current water intake
       double currentWater = double.parse(healthData.waterIntake.split(' ')[0]);
-
-      // Add 200ml (0.2 liters)
       currentWater += 0.2;
 
-      // Update the main water intake
       healthData.waterIntake = "${currentWater.toStringAsFixed(1)} Liters";
 
-      // Calculate water progress (assuming target of 4 liters)
-      double waterTarget = 4.0; // 4 liters target
+      double waterTarget = 4.0;
       double newWaterProgress = (currentWater / waterTarget) * 100;
       if (newWaterProgress > 100) newWaterProgress = 100;
 
       healthData.waterProgressValue = newWaterProgress;
       waterProgressNotifier.value = newWaterProgress;
 
-      // Update the latest water update (last item in the list)
       if (healthData.waterUpdates.isNotEmpty) {
         WaterUpdate lastUpdate = healthData.waterUpdates.last;
         int currentML = int.parse(lastUpdate.subtitle.split('ml')[0]);
@@ -201,12 +197,10 @@ class _HomeViewState extends State<HomeView> {
     });
   }
 
-  // Method to calculate time to 10 PM
   String _getTimeTo10PM() {
     DateTime now = DateTime.now();
-    DateTime tenPM = DateTime(now.year, now.month, now.day, 22, 0); // 10 PM today
+    DateTime tenPM = DateTime(now.year, now.month, now.day, 22, 0);
 
-    // If it's already past 10 PM, calculate for tomorrow
     if (now.isAfter(tenPM)) {
       tenPM = tenPM.add(Duration(days: 1));
     }
@@ -259,16 +253,48 @@ class _HomeViewState extends State<HomeView> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          "Welcome Back,",
-                          style: TextStyle(color: TColor.gray, fontSize: 12),
+                        FutureBuilder(
+                          future: controller.getData,
+                          builder: (BuildContext context, AsyncSnapshot snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return Text(
+                                'Loading...',
+                                style: TextStyle(
+                                    color: TColor.black,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w700
+                                ),
+                              );
+                            }
+
+                            if (snapshot.hasError) {
+                              return Text(
+                                'Error Loading',
+                                style: TextStyle(
+                                    color: TColor.black,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w700
+                                ),
+                              );
+                            }
+
+                            return Obx(() => Text(
+                              'Hello, ${controller.username.value}!',
+                              style: TextStyle(
+                                  color: TColor.black,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700
+                              ),
+                            ));
+                          },
                         ),
+                        SizedBox(height: 4),
                         Text(
-                          "Adem Bouallegue",
+                          "Ready to workout?",
                           style: TextStyle(
-                              color: TColor.black,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700),
+                            color: TColor.gray,
+                            fontSize: 14,
+                          ),
                         ),
                       ],
                     ),
@@ -857,7 +883,6 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  // Dynamic Widget Methods
   Widget _buildWaterIntakeSection(Size media) {
     return SingleChildScrollView(
       child: Column(
@@ -890,27 +915,22 @@ class _HomeViewState extends State<HomeView> {
               ),
             ),
           ),
-          // const SizedBox(height: 20),
-          // const SizedBox(height: 15),
-
-          // Bigger Realistic Water Bottle Design
           Container(
-            height: media.width * 0.8, // Increased container height
+            height: media.width * 0.8,
             child: Center(
               child: GestureDetector(
                 onDoubleTap: addWater,
                 child: Stack(
                   alignment: Alignment.bottomCenter,
                   children: [
-                    // Main bottle body with curved sides - BIGGER
                     Container(
-                      width: media.width * 0.3, // Wider bottle
-                      height: media.width * 0.65, // Taller bottle
+                      width: media.width * 0.3,
+                      height: media.width * 0.65,
                       decoration: BoxDecoration(
                         color: Colors.transparent,
                         border: Border.all(
                           color: TColor.secondaryColor1.withOpacity(0.6),
-                          width: 3, // Thicker border
+                          width: 3,
                         ),
                         borderRadius: BorderRadius.only(
                           topLeft: Radius.circular(media.width * 0.06),
@@ -928,7 +948,6 @@ class _HomeViewState extends State<HomeView> {
                         ),
                         child: Stack(
                           children: [
-                            // Water level - BIGGER
                             Align(
                               alignment: Alignment.bottomCenter,
                               child: AnimatedContainer(
@@ -956,8 +975,6 @@ class _HomeViewState extends State<HomeView> {
                         ),
                       ),
                     ),
-
-                    // Bottle neck (narrow part) - BIGGER
                     Positioned(
                       top: media.width * 0.65,
                       child: Container(
@@ -978,8 +995,6 @@ class _HomeViewState extends State<HomeView> {
                         ),
                       ),
                     ),
-
-                    // Bottle cap - BIGGER
                     Positioned(
                       top: media.width * 0.7,
                       child: Container(
@@ -1003,8 +1018,6 @@ class _HomeViewState extends State<HomeView> {
                         ),
                       ),
                     ),
-
-                    // Measurement markers on the side - BIGGER
                     Positioned(
                       left: media.width * 0.32,
                       top: 0,
@@ -1023,8 +1036,6 @@ class _HomeViewState extends State<HomeView> {
                         ),
                       ),
                     ),
-
-                    // Water waves effect at the top of water level - BIGGER
                     Positioned(
                       bottom: (media.width * 0.61) * (healthData.waterProgressValue / 100),
                       left: media.width * 0.015,
@@ -1043,8 +1054,6 @@ class _HomeViewState extends State<HomeView> {
                         ),
                       ),
                     ),
-
-                    // Current water level indicator - BIGGER
                     Positioned(
                       right: media.width * 0.33,
                       top: (media.width * 0.61) * (1 - healthData.waterProgressValue / 100) - 25,
@@ -1071,8 +1080,6 @@ class _HomeViewState extends State<HomeView> {
                         ),
                       ),
                     ),
-
-                    // Bottle label/design - BIGGER
                     Positioned(
                       top: media.width * 0.15,
                       left: 0,
@@ -1100,20 +1107,6 @@ class _HomeViewState extends State<HomeView> {
                               ),
                             ),
                           ],
-                        ),
-                      ),
-                    ),
-
-                    // Double-tap instruction - BIGGER
-                    Positioned(
-                      bottom: -25,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        padding: EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.6),
-                          borderRadius: BorderRadius.circular(6),
                         ),
                       ),
                     ),
@@ -1543,5 +1536,89 @@ class _HomeViewState extends State<HomeView> {
       space: 10,
       child: text,
     );
+  }
+}
+
+// USE YOUR PROVEN SETTINGSCONTROLLER THAT WORKS
+class SettingsController extends GetxController {
+  @override
+  void onInit() {
+    getData = getUserData();
+    super.onInit();
+  }
+  var isLoading = false.obs;
+  var currentUser = FirebaseAuth.instance.currentUser;
+  var username = ''.obs;
+  var email = ''.obs;
+  Future? getData;
+
+  getUserData() async {
+    try {
+      isLoading(true);
+      print("=== DEBUG START ===");
+      print("🔄 Current User UID: ${currentUser?.uid}");
+      print("📧 Current User Email: ${currentUser?.email}");
+
+      // Check if user document exists
+      DocumentSnapshot<Map<String, dynamic>> user = await FirebaseFirestore
+          .instance
+          .collection("Users")
+          .doc(currentUser!.uid)
+          .get();
+
+      print("📄 Document exists: ${user.exists}");
+
+      if (user.exists) {
+        // Document exists - get username
+        var UserData = user.data();
+        print("📊 User Data: $UserData");
+
+        if (UserData != null && UserData.containsKey('username')) {
+          username.value = UserData['username'] ?? "";
+          print("✅ Username found: ${username.value}");
+        } else {
+          print("❌ Username field not found - creating it");
+          await _createUserDocument();
+        }
+      } else {
+        // Document doesn't exist - create it
+        print("❌ User document does not exist - CREATING NOW");
+        await _createUserDocument();
+      }
+
+      email.value = currentUser!.email ?? "";
+      print("=== DEBUG END ===");
+    } catch (e) {
+      print("❌ ERROR: $e");
+      username.value = "User";
+    } finally {
+      isLoading(false);
+    }
+  }
+
+  Future<void> _createUserDocument() async {
+    try {
+      print("🛠️ Creating user document...");
+
+      // Generate username from email (before @ symbol)
+      String generatedUsername = currentUser!.email?.split('@').first ?? "User";
+
+      // Create the user document in Firestore
+      await FirebaseFirestore.instance
+          .collection("Users")
+          .doc(currentUser!.uid)
+          .set({
+        'username': generatedUsername,
+        'email': currentUser!.email,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      print("✅ User document created with username: $generatedUsername");
+      username.value = generatedUsername;
+
+    } catch (e) {
+      print("❌ Error creating user document: $e");
+      username.value = "User";
+    }
   }
 }
