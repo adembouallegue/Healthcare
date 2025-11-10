@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../common/colo_extension.dart';
-import '../../common_widget/notification_row.dart';
+import 'package:healthcare/common/colo_extension.dart';
+import 'package:healthcare/common_widget/notification_row.dart';
 
 class NotificationView extends StatefulWidget {
   const NotificationView({super.key});
