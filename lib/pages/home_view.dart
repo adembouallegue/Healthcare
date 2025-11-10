@@ -23,7 +23,8 @@ import 'workout_timer_screen.dart';
 class HealthData {
   String waterIntake;
   String sleep;
-  String calories;
+  String calories; // NET calories (consumed - burned)
+  String caloriesBurned; // Track burned calories separately
   String caloriesLeft;
   List<WaterUpdate> waterUpdates;
   double progressValue;
@@ -41,14 +42,13 @@ class HealthData {
     required this.waterIntake,
     required this.sleep,
     required this.calories,
+    required this.caloriesBurned,
     required this.caloriesLeft,
     required this.waterUpdates,
     required this.progressValue,
     required this.waterProgressValue,
     required this.calorieTarget,
     required this.waterTarget,
-
-    // New BMI fields with defaults
     this.height = 170.0, // default height
     this.weight = 70.0,  // default weight
     this.bmi = 0.0,
@@ -61,14 +61,13 @@ class HealthData {
       'waterIntake': waterIntake,
       'sleep': sleep,
       'calories': calories,
+      'caloriesBurned': caloriesBurned,
       'caloriesLeft': caloriesLeft,
       'waterUpdates': waterUpdates.map((update) => update.toMap()).toList(),
       'progressValue': progressValue,
       'waterProgressValue': waterProgressValue,
       'calorieTarget': calorieTarget,
       'waterTarget': waterTarget,
-
-      // New BMI fields
       'height': height,
       'weight': weight,
       'bmi': bmi,
@@ -112,14 +111,13 @@ class HealthData {
       waterIntake: data['waterIntake'] ?? '0.0 Liters',
       sleep: data['sleep'] ?? '8h 20m',
       calories: data['calories'] ?? '0 kCal',
+      caloriesBurned: data['caloriesBurned'] ?? '0 kCal',
       caloriesLeft: data['caloriesLeft'] ?? '${caloriesLeftValue}kCal\nleft',
       waterUpdates: waterUpdates,
       progressValue: (data['progressValue'] ?? 0.0).toDouble(),
       waterProgressValue: (data['waterProgressValue'] ?? 0.0).toDouble(),
       calorieTarget: calorieTarget,
       waterTarget: waterTarget,
-
-      // New BMI fields
       height: height,
       weight: weight,
       bmi: bmi,
@@ -177,6 +175,7 @@ class HealthDataController extends GetxController {
     waterIntake: "0.0 Liters",
     sleep: "8h 20m",
     calories: "0 kCal",
+    caloriesBurned: "0 kCal",
     caloriesLeft: "2400kCal\nleft",
     progressValue: 0.0,
     waterProgressValue: 0.0,
@@ -225,6 +224,7 @@ class HealthDataController extends GetxController {
       waterIntake: "0.0 Liters",
       sleep: healthData.value.sleep, // Keep sleep data
       calories: "0 kCal",
+      caloriesBurned: "0 kCal",
       caloriesLeft: "${healthData.value.calorieTarget}kCal\nleft",
       waterUpdates: [
         WaterUpdate(title: "● 6am - 8am", subtitle: "0ml"),
@@ -368,13 +368,14 @@ class HealthDataController extends GetxController {
     _checkAndResetDailyData();
   }
 
-  // Add calories and save
+  // Add calories and save - This adds CONSUMED calories (food/drink)
   void addCalories() {
     // Create a new instance to trigger reactivity
     final newHealthData = HealthData(
       waterIntake: healthData.value.waterIntake,
       sleep: healthData.value.sleep,
       calories: healthData.value.calories,
+      caloriesBurned: healthData.value.caloriesBurned,
       caloriesLeft: healthData.value.caloriesLeft,
       waterUpdates: List.from(healthData.value.waterUpdates),
       progressValue: healthData.value.progressValue,
@@ -388,12 +389,10 @@ class HealthDataController extends GetxController {
     );
 
     int currentCalories = int.parse(newHealthData.calories.split(' ')[0]);
-    currentCalories += 50;
+    currentCalories += 50; // Add CONSUMED calories
 
     int caloriesLeftValue = newHealthData.calorieTarget - currentCalories;
-    if (caloriesLeftValue < 0) {
-      caloriesLeftValue = 0;
-    }
+    if (caloriesLeftValue < 0) caloriesLeftValue = 0;
 
     newHealthData.calories = "${currentCalories} kCal";
     newHealthData.caloriesLeft = "${caloriesLeftValue}kCal\nleft";
@@ -406,6 +405,8 @@ class HealthDataController extends GetxController {
     progressNotifier.value = newProgress;
 
     _saveHealthData();
+
+    print('🍕 Added 50 consumed calories - Total: $currentCalories kCal');
   }
 
   // Add water and save
@@ -415,6 +416,7 @@ class HealthDataController extends GetxController {
       waterIntake: healthData.value.waterIntake,
       sleep: healthData.value.sleep,
       calories: healthData.value.calories,
+      caloriesBurned: healthData.value.caloriesBurned,
       caloriesLeft: healthData.value.caloriesLeft,
       waterUpdates: List.from(healthData.value.waterUpdates),
       progressValue: healthData.value.progressValue,
@@ -458,6 +460,7 @@ class HealthDataController extends GetxController {
       waterIntake: healthData.value.waterIntake,
       sleep: healthData.value.sleep,
       calories: healthData.value.calories,
+      caloriesBurned: healthData.value.caloriesBurned,
       caloriesLeft: healthData.value.caloriesLeft,
       waterUpdates: List.from(healthData.value.waterUpdates),
       progressValue: healthData.value.progressValue,
@@ -496,6 +499,7 @@ class HealthDataController extends GetxController {
       waterIntake: healthData.value.waterIntake,
       sleep: healthData.value.sleep,
       calories: healthData.value.calories,
+      caloriesBurned: healthData.value.caloriesBurned,
       caloriesLeft: healthData.value.caloriesLeft,
       waterUpdates: List.from(healthData.value.waterUpdates),
       progressValue: healthData.value.progressValue,
@@ -527,6 +531,7 @@ class HealthDataController extends GetxController {
       waterIntake: healthData.value.waterIntake,
       sleep: healthData.value.sleep,
       calories: healthData.value.calories,
+      caloriesBurned: healthData.value.caloriesBurned,
       caloriesLeft: healthData.value.caloriesLeft,
       waterUpdates: List.from(healthData.value.waterUpdates),
       progressValue: healthData.value.progressValue,
@@ -676,7 +681,7 @@ class _HomeViewState extends State<HomeView> {
   void initState() {
     super.initState();
     controller = Get.put(SettingsController());
-    healthController = Get.put(HealthDataController());
+    healthController = Get.put(HealthDataController(), tag: 'HealthDataController');
     workoutController = Get.put(WorkoutController());
 
     // Check for daily reset every minute
@@ -1102,7 +1107,6 @@ class _HomeViewState extends State<HomeView> {
   }
 
   // Individual Exercise Card
-// Individual Exercise Card with better image handling
   Widget _buildExerciseCard(Exercise exercise, Size media) {
     return Container(
       margin: EdgeInsets.only(bottom: 12),
@@ -1212,7 +1216,7 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-// Build exercise image with fallback
+  // Build exercise image with fallback
   Widget _buildExerciseImage(Exercise exercise) {
     // Try to load the image, if it fails show an icon
     try {
@@ -1230,7 +1234,7 @@ class _HomeViewState extends State<HomeView> {
     }
   }
 
-// Fallback exercise icon based on category
+  // Fallback exercise icon based on category
   Widget _buildExerciseIcon(String category) {
     IconData icon;
     Color color;
@@ -1241,7 +1245,7 @@ class _HomeViewState extends State<HomeView> {
         color = TColor.primaryColor1;
         break;
       case 'pull':
-        icon = Icons.arrow_upward;
+        icon = Icons.arrow_back; // Fixed from pull_right to arrow_back
         color = Colors.blue;
         break;
       case 'legs':
@@ -1265,7 +1269,7 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-// Difficulty badge with colors and icons
+  // Difficulty badge with colors and icons
   Widget _buildDifficultyBadge(String difficulty) {
     Color color;
     String text;
@@ -1322,7 +1326,7 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-// Get category color
+  // Get category color
   Color _getCategoryColor(String category) {
     switch (category) {
       case 'push':
@@ -1336,7 +1340,7 @@ class _HomeViewState extends State<HomeView> {
     }
   }
 
-// Get muscle color
+  // Get muscle color
   Color _getMuscleColor(String muscle) {
     switch (muscle.toLowerCase()) {
       case 'chest':
@@ -1363,6 +1367,7 @@ class _HomeViewState extends State<HomeView> {
         return TColor.gray;
     }
   }
+
   Widget _buildExerciseTag(String text, Color color) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1379,19 +1384,6 @@ class _HomeViewState extends State<HomeView> {
         ),
       ),
     );
-  }
-
-  Color _getDifficultyColor(String difficulty) {
-    switch (difficulty) {
-      case 'beginner':
-        return Colors.green;
-      case 'intermediate':
-        return Colors.orange;
-      case 'advanced':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
   }
 
   // Start Exercise Workout
@@ -1415,7 +1407,7 @@ class _HomeViewState extends State<HomeView> {
                     items: [5, 10, 15, 20, 25, 30].map((duration) {
                       return DropdownMenuItem<int>(
                         value: duration,
-                        child: Text("$duration minutes - ${exercise.calculateCalories(duration)} calories"),
+                        child: Text("$duration minutes - ${exercise.calculateCalories(duration)} calories burned"),
                       );
                     }).toList(),
                     onChanged: (value) {
@@ -1466,7 +1458,7 @@ class _HomeViewState extends State<HomeView> {
             workoutController.completeWorkout(session);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Great! ${exercise.calculateCalories(duration)} calories added to your progress!'),
+                content: Text('Great! ${exercise.calculateCalories(duration)} calories burned!'),
                 backgroundColor: TColor.primaryColor1,
               ),
             );
@@ -1474,6 +1466,35 @@ class _HomeViewState extends State<HomeView> {
         );
       },
     );
+  }
+
+  // Helper methods for workout display
+  IconData _getCategoryIcon(String category) {
+    switch (category) {
+      case 'push':
+        return Icons.push_pin;
+      case 'pull':
+        return Icons.arrow_back; // Fixed from pull_right
+      case 'legs':
+        return Icons.directions_run;
+      default:
+        return Icons.fitness_center;
+    }
+  }
+
+  String _formatWorkoutTime(DateTime completedAt) {
+    final now = DateTime.now();
+    final difference = now.difference(completedAt);
+
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes} min ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours} hour${difference.inHours > 1 ? 's' : ''} ago';
+    } else {
+      return '${difference.inDays} day${difference.inDays > 1 ? 's' : ''} ago';
+    }
   }
 
   @override
@@ -1706,53 +1727,148 @@ class _HomeViewState extends State<HomeView> {
                     height: media.width * 0.05,
                   ),
 
-                  // WORKOUT SECTION
-                  // _buildWorkoutSection(media),
+                  // WORKOUT PROGRESS SECTION
+                  Container(
+                    padding: EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(15),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black12, blurRadius: 2)
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "Today's Workout Progress",
+                              style: TextStyle(
+                                  color: TColor.black,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700),
+                            ),
+                            Obx(() => Text(
+                              "${workoutController.todayCaloriesBurned.value} cal burned",
+                              style: TextStyle(
+                                  color: TColor.primaryColor1,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600),
+                            )),
+                          ],
+                        ),
+                        SizedBox(height: 15),
+                        Obx(() {
+                          final progress = workoutController.getTodayWorkoutProgress();
+                          final completedSessions = workoutController.currentWorkoutSessions.where((s) => s.isCompleted).length;
+                          final totalSessions = workoutController.currentWorkoutSessions.length;
+
+                          return Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    "Progress",
+                                    style: TextStyle(
+                                      color: TColor.gray,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  Text(
+                                    "${(progress * 100).toStringAsFixed(0)}%",
+                                    style: TextStyle(
+                                      color: TColor.primaryColor1,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 8),
+                              SimpleAnimationProgressBar(
+                                height: 15,
+                                width: media.width - 60,
+                                backgroundColor: Colors.grey.shade100,
+                                foregroundColor: TColor.primaryColor1, // Fixed typo
+                                ratio: progress,
+                                direction: Axis.horizontal,
+                                curve: Curves.fastLinearToSlowEaseIn,
+                                duration: const Duration(seconds: 1),
+                              ),
+                              SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    "$completedSessions of $totalSessions exercises completed",
+                                    style: TextStyle(
+                                      color: TColor.gray,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                  Text(
+                                    "${workoutController.todayWorkoutTime.value} min",
+                                    style: TextStyle(
+                                      color: TColor.gray,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
 
                   SizedBox(
                     height: media.width * 0.05,
                   ),
 
                   // TODAY TARGET SECTION
-                  Container(
-                    padding:
-                    const EdgeInsets.symmetric(vertical: 15, horizontal: 15),
-                    decoration: BoxDecoration(
-                      color: TColor.primaryColor2.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          "Today Target",
-                          style: TextStyle(
-                              color: TColor.black,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700),
-                        ),
-                        SizedBox(
-                          width: 70,
-                          height: 25,
-                          child: RoundButton(
-                            title: "Check",
-                            type: RoundButtonType.bgGradient,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                  const ActivityTrackerView(),
-                                ),
-                              );
-                            },
-                          ),
-                        )
-                      ],
-                    ),
-                  ),
+                  // Container(
+                  //   padding:
+                  //   const EdgeInsets.symmetric(vertical: 15, horizontal: 15),
+                  //   decoration: BoxDecoration(
+                  //     color: TColor.primaryColor2.withOpacity(0.3),
+                  //     borderRadius: BorderRadius.circular(15),
+                  //   ),
+                  //   child: Row(
+                  //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  //     children: [
+                  //       Text(
+                  //         "Today Target",
+                  //         style: TextStyle(
+                  //             color: TColor.black,
+                  //             fontSize: 14,
+                  //             fontWeight: FontWeight.w700),
+                  //       ),
+                  //       SizedBox(
+                  //         width: 70,
+                  //         height: 25,
+                  //         child: RoundButton(
+                  //           title: "Check",
+                  //           type: RoundButtonType.bgGradient,
+                  //           fontSize: 12,
+                  //           fontWeight: FontWeight.w400,
+                  //           onPressed: () {
+                  //             Navigator.push(
+                  //               context,
+                  //               MaterialPageRoute(
+                  //                 builder: (context) =>
+                  //                 const ActivityTrackerView(),
+                  //               ),
+                  //             );
+                  //           },
+                  //         ),
+                  //       )
+                  //     ],
+                  //   ),
+                  // ),
                   SizedBox(
                     height: media.width * 0.05,
                   ),
@@ -1995,171 +2111,19 @@ class _HomeViewState extends State<HomeView> {
                       ],
                     ),
                   ),
+
+                  SizedBox(
+                    height: media.width * 0.05,
+                  ),
+
+                  // WORKOUT EXERCISES SECTION
                   _buildWorkoutSection(media),
 
                   SizedBox(
                     height: media.width * 0.05,
                   ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        "Workout Progress",
-                        style: TextStyle(
-                            color: TColor.black,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700),
-                      ),
-                      Container(
-                          height: 30,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(colors: TColor.primaryG),
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton(
-                              items: ["Weekly", "Monthly"]
-                                  .map((name) => DropdownMenuItem(
-                                value: name,
-                                child: Text(
-                                  name,
-                                  style: TextStyle(
-                                      color: TColor.gray, fontSize: 14),
-                                ),
-                              ))
-                                  .toList(),
-                              onChanged: (value) {},
-                              icon: Icon(Icons.expand_more, color: TColor.white),
-                              hint: Text(
-                                "Weekly",
-                                textAlign: TextAlign.center,
-                                style:
-                                TextStyle(color: TColor.white, fontSize: 12),
-                              ),
-                            ),
-                          )),
-                    ],
-                  ),
-                  SizedBox(
-                    height: media.width * 0.05,
-                  ),
-                  Container(
-                      padding: const EdgeInsets.only(left: 15),
-                      height: media.width * 0.5,
-                      width: double.maxFinite,
-                      child: LineChart(
-                        LineChartData(
-                          showingTooltipIndicators:
-                          showingTooltipOnSpots.map((index) {
-                            return ShowingTooltipIndicators([
-                              LineBarSpot(
-                                tooltipsOnBar,
-                                lineBarsData.indexOf(tooltipsOnBar),
-                                tooltipsOnBar.spots[index],
-                              ),
-                            ]);
-                          }).toList(),
-                          lineTouchData: LineTouchData(
-                            enabled: true,
-                            handleBuiltInTouches: false,
-                            touchCallback: (FlTouchEvent event,
-                                LineTouchResponse? response) {
-                              if (response == null ||
-                                  response.lineBarSpots == null) {
-                                return;
-                              }
-                              if (event is FlTapUpEvent) {
-                                final spotIndex =
-                                    response.lineBarSpots!.first.spotIndex;
-                                showingTooltipOnSpots.clear();
-                                setState(() {
-                                  showingTooltipOnSpots.add(spotIndex);
-                                });
-                              }
-                            },
-                            mouseCursorResolver: (FlTouchEvent event,
-                                LineTouchResponse? response) {
-                              if (response == null ||
-                                  response.lineBarSpots == null) {
-                                return SystemMouseCursors.basic;
-                              }
-                              return SystemMouseCursors.click;
-                            },
-                            getTouchedSpotIndicator: (LineChartBarData barData,
-                                List<int> spotIndexes) {
-                              return spotIndexes.map((index) {
-                                return TouchedSpotIndicatorData(
-                                  FlLine(
-                                    color: Colors.transparent,
-                                  ),
-                                  FlDotData(
-                                    show: true,
-                                    getDotPainter:
-                                        (spot, percent, barData, index) =>
-                                        FlDotCirclePainter(
-                                          radius: 3,
-                                          color: Colors.white,
-                                          strokeWidth: 3,
-                                          strokeColor: TColor.secondaryColor1,
-                                        ),
-                                  ),
-                                );
-                              }).toList();
-                            },
-                            touchTooltipData: LineTouchTooltipData(
-                              getTooltipColor: (spot) => TColor.secondaryColor1,
-                              tooltipRoundedRadius: 20,
-                              getTooltipItems: (List<LineBarSpot> lineBarsSpot) {
-                                return lineBarsSpot.map((lineBarSpot) {
-                                  return LineTooltipItem(
-                                    "${lineBarSpot.x.toInt()} mins ago",
-                                    const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  );
-                                }).toList();
-                              },
-                            ),
-                          ),
-                          lineBarsData: lineBarsData1,
-                          minY: -0.5,
-                          maxY: 110,
-                          titlesData: FlTitlesData(
-                              show: true,
-                              leftTitles: AxisTitles(),
-                              topTitles: AxisTitles(),
-                              bottomTitles: AxisTitles(
-                                sideTitles: bottomTitles,
-                              ),
-                              rightTitles: AxisTitles(
-                                sideTitles: rightTitles,
-                              )),
-                          gridData: FlGridData(
-                            show: true,
-                            drawHorizontalLine: true,
-                            horizontalInterval: 25,
-                            drawVerticalLine: false,
-                            getDrawingHorizontalLine: (value) {
-                              return FlLine(
-                                color: TColor.gray.withOpacity(0.15),
-                                strokeWidth: 2,
-                              );
-                            },
-                          ),
-                          borderData: FlBorderData(
-                            show: true,
-                            border: Border.all(
-                              color: Colors.transparent,
-                            ),
-                          ),
-                        ),
-                      )),
-                  SizedBox(
-                    height: media.width * 0.05,
-                  ),
+
+                  // LATEST WORKOUT SECTION
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -2171,7 +2135,9 @@ class _HomeViewState extends State<HomeView> {
                             fontWeight: FontWeight.w700),
                       ),
                       TextButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          workoutController.loadLatestWorkouts();
+                        },
                         child: Text(
                           "See More",
                           style: TextStyle(
@@ -2182,25 +2148,120 @@ class _HomeViewState extends State<HomeView> {
                       )
                     ],
                   ),
-                  ListView.builder(
-                      padding: EdgeInsets.zero,
-                      physics: const NeverScrollableScrollPhysics(),
-                      shrinkWrap: true,
-                      itemCount: lastWorkoutArr.length,
-                      itemBuilder: (context, index) {
-                        var wObj = lastWorkoutArr[index] as Map? ?? {};
-                        return InkWell(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                  const FinishedWorkoutView(),
+                  Obx(() {
+                    final latestWorkouts = workoutController.getLatestCompletedWorkouts();
+
+                    if (latestWorkouts.isEmpty) {
+                      return Container(
+                        padding: EdgeInsets.all(20),
+                        margin: EdgeInsets.only(bottom: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(15),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black12, blurRadius: 2)
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(Icons.fitness_center, color: TColor.gray, size: 40),
+                            SizedBox(height: 10),
+                            Text(
+                              "No workouts completed yet",
+                              style: TextStyle(color: TColor.gray, fontSize: 14),
+                            ),
+                            SizedBox(height: 5),
+                            Text(
+                              "Start your first workout!",
+                              style: TextStyle(color: TColor.gray, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return Column(
+                      children: latestWorkouts.map((workout) =>
+                          Container(
+                            margin: EdgeInsets.only(bottom: 10),
+                            padding: EdgeInsets.all(15),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(15),
+                              boxShadow: [
+                                BoxShadow(color: Colors.black12, blurRadius: 2)
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                // Workout icon based on category
+                                Container(
+                                  width: 50,
+                                  height: 50,
+                                  decoration: BoxDecoration(
+                                    color: _getCategoryColor(workout.category).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(
+                                    _getCategoryIcon(workout.category),
+                                    color: _getCategoryColor(workout.category),
+                                    size: 24,
+                                  ),
                                 ),
-                              );
-                            },
-                            child: WorkoutRow(wObj: wObj));
-                      }),
+                                SizedBox(width: 15),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        workout.exerciseName,
+                                        style: TextStyle(
+                                          color: TColor.black,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        "${workout.duration} min • ${workout.caloriesBurned} cal burned",
+                                        style: TextStyle(
+                                          color: TColor.gray,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        _formatWorkoutTime(workout.completedAt),
+                                        style: TextStyle(
+                                          color: TColor.gray.withOpacity(0.7),
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    "Completed",
+                                    style: TextStyle(
+                                      color: Colors.green,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                      ).toList(),
+                    );
+                  }),
+
                   SizedBox(
                     height: media.width * 0.1,
                   ),
