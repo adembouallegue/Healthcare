@@ -710,7 +710,71 @@ class _HomeViewState extends State<HomeView> {
 
     return '${hours}h ${minutes}m';
   }
+  void _showWorkoutTimer(Exercise exercise, int duration) {
+    try {
+      print('🚀 Attempting to start workout timer...');
+      print('💪 Exercise: ${exercise.name}');
+      print('⏱️ Duration: $duration minutes');
 
+      // Validate exercise
+      if (exercise.id.isEmpty) {
+        throw ArgumentError('Exercise ID is empty');
+      }
+
+      if (duration <= 0) {
+        throw ArgumentError('Invalid duration: $duration');
+      }
+
+      final session = workoutController.startWorkout(exercise, duration);
+      print('✅ Workout session created successfully');
+
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        isDismissible: false, // Prevent accidental dismissal
+        backgroundColor: Colors.transparent,
+        builder: (BuildContext context) {
+          return WorkoutTimerScreen(
+            exercise: exercise,
+            duration: duration,
+            session: session,
+            onComplete: () {
+              print('🏁 Workout completed callback triggered');
+              try {
+                workoutController.completeWorkout(session);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Great! ${exercise.calculateCalories(duration)} calories burned!'),
+                    backgroundColor: TColor.primaryColor1,
+                  ),
+                );
+              } catch (e) {
+                print('❌ Error in completion callback: $e');
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Workout completed but recording failed: $e'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+              }
+            },
+          );
+        },
+      );
+
+    } catch (e, stackTrace) {
+      print('❌ CRITICAL ERROR starting workout: $e');
+      print('📝 Stack trace: $stackTrace');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to start workout: $e'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 5),
+        ),
+      );
+    }
+  }
   void _showCalorieTargetDialog(BuildContext context) {
     TextEditingController targetController = TextEditingController(
       text: healthController.healthData.value.calorieTarget.toString(),
@@ -1039,7 +1103,7 @@ class _HomeViewState extends State<HomeView> {
             Text(
               "Today's Workout",
               style: TextStyle(
-                color: TColor.black,
+                color: Theme.of(context).colorScheme.onBackground,
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
@@ -1386,9 +1450,26 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  // Start Exercise Workout
   void _startExerciseWorkout(Exercise exercise) {
+    print('=== EXERCISE DEBUG INFO ===');
+    print('🔍 Exercise: ${exercise.name}');
+    print('🆔 ID: ${exercise.id}');
+    print('📁 Category: ${exercise.category}');
+    print('🎯 Difficulty: ${exercise.difficulty}');
+    print('⏱️ Default Duration: ${exercise.defaultDuration}');
+    print('🔥 Calories/Min: ${exercise.caloriesPerMinute}');
+    print('💪 Muscles: ${exercise.muscles}');
+    print('📷 Image: ${exercise.image}');
+    print('============================');
+
+    // FIX: Ensure unique duration values for dropdown
+    List<int> availableDurations = _getAvailableDurations(exercise);
     int selectedDuration = exercise.defaultDuration;
+
+    // Ensure selected duration exists in available durations
+    if (!availableDurations.contains(selectedDuration)) {
+      selectedDuration = availableDurations.first;
+    }
 
     showDialog(
       context: context,
@@ -1404,7 +1485,7 @@ class _HomeViewState extends State<HomeView> {
                   SizedBox(height: 16),
                   DropdownButton<int>(
                     value: selectedDuration,
-                    items: [5, 10, 15, 20, 25, 30].map((duration) {
+                    items: availableDurations.map((duration) {
                       return DropdownMenuItem<int>(
                         value: duration,
                         child: Text("$duration minutes - ${exercise.calculateCalories(duration)} calories burned"),
@@ -1416,6 +1497,11 @@ class _HomeViewState extends State<HomeView> {
                       });
                     },
                   ),
+                  SizedBox(height: 10),
+                  Text(
+                    'ID: ${exercise.id} | Difficulty: ${exercise.difficulty}',
+                    style: TextStyle(fontSize: 10, color: Colors.grey),
+                  ),
                 ],
               ),
               actions: [
@@ -1425,6 +1511,7 @@ class _HomeViewState extends State<HomeView> {
                 ),
                 ElevatedButton(
                   onPressed: () {
+                    print('🎯 Starting ${exercise.name} with $selectedDuration minutes');
                     Navigator.of(context).pop();
                     _showWorkoutTimer(exercise, selectedDuration);
                   },
@@ -1442,33 +1529,23 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  // Workout Timer Screen
-  void _showWorkoutTimer(Exercise exercise, int duration) {
-    final session = workoutController.startWorkout(exercise, duration);
+// FIX: Method to get unique duration values
+  List<int> _getAvailableDurations(Exercise exercise) {
+    // Create a set to ensure unique values, then convert back to list
+    Set<int> uniqueDurations = {5, 10, 15, 20, 25, 30}.toSet();
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (BuildContext context) {
-        return WorkoutTimerScreen(
-          exercise: exercise,
-          duration: duration,
-          session: session,
-          onComplete: () {
-            workoutController.completeWorkout(session);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Great! ${exercise.calculateCalories(duration)} calories burned!'),
-                backgroundColor: TColor.primaryColor1,
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
+    // Ensure the exercise's default duration is included
+    uniqueDurations.add(exercise.defaultDuration);
 
-  // Helper methods for workout display
+    // Convert to list and sort
+    List<int> durations = uniqueDurations.toList();
+    durations.sort();
+
+    print('📅 Available durations for ${exercise.name}: $durations');
+    print('🎯 Default duration: ${exercise.defaultDuration}');
+
+    return durations;
+  }  // Helper methods for workout display
   IconData _getCategoryIcon(String category) {
     switch (category) {
       case 'push':
@@ -1524,8 +1601,7 @@ class _HomeViewState extends State<HomeView> {
     final tooltipsOnBar = lineBarsData[0];
 
     return Scaffold(
-      backgroundColor: TColor.white,
-      floatingActionButton: FloatingActionButton(
+      backgroundColor: Theme.of(context).colorScheme.background,      floatingActionButton: FloatingActionButton(
         onPressed: () {
           healthController.manualDailyReset();
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1543,7 +1619,7 @@ class _HomeViewState extends State<HomeView> {
         if (healthController.isLoading.value) {
           return Center(
             child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(TColor.primaryColor1),
+              valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary,),
             ),
           );
         }
@@ -1589,7 +1665,7 @@ class _HomeViewState extends State<HomeView> {
                               return Obx(() => Text(
                                 'Hello, ${controller.username.value}!',
                                 style: TextStyle(
-                                    color: TColor.black,
+                                    color: Theme.of(context).colorScheme.onBackground,
                                     fontSize: 20,
                                     fontWeight: FontWeight.w700
                                 ),
@@ -1731,7 +1807,7 @@ class _HomeViewState extends State<HomeView> {
                   Container(
                     padding: EdgeInsets.all(15),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(15),
                       boxShadow: [
                         BoxShadow(color: Colors.black12, blurRadius: 2)
@@ -1746,7 +1822,7 @@ class _HomeViewState extends State<HomeView> {
                             Text(
                               "Today's Workout Progress",
                               style: TextStyle(
-                                  color: TColor.black,
+                                  color: Theme.of(context).colorScheme.onBackground,
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700),
                             ),
@@ -1917,7 +1993,7 @@ class _HomeViewState extends State<HomeView> {
                   Text(
                     "Activity Status",
                     style: TextStyle(
-                        color: TColor.black,
+                        color: Theme.of(context).colorScheme.onBackground,
                         fontSize: 16,
                         fontWeight: FontWeight.w700),
                   ),
@@ -2130,7 +2206,7 @@ class _HomeViewState extends State<HomeView> {
                       Text(
                         "Latest Workout",
                         style: TextStyle(
-                            color: TColor.black,
+                            color: Theme.of(context).colorScheme.onBackground,
                             fontSize: 16,
                             fontWeight: FontWeight.w700),
                       ),
@@ -2589,7 +2665,7 @@ class _HomeViewState extends State<HomeView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "Time to 10 PM",
+                "Time to Sleep",
                 style: TextStyle(
                     color: TColor.black,
                     fontSize: 11,

@@ -86,9 +86,3 @@ Future<void> updatePassword(String currentPassword, String newPassword) async {
 }
 
 }
-
-
-
-
-
-
